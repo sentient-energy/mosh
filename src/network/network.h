@@ -175,8 +175,12 @@ namespace Network {
 
     string recv_one( int sock_to_recv, bool nonblocking );
 
+    void ServerConnection( const char *desired_ip, const char *desired_port );
+
   public:
     Connection( const char *desired_ip, const char *desired_port ); /* server */
+    Connection( const char *desired_ip, const char *desired_port,
+                bool use_desired_key, const char *desired_key ); /* server with key */
     Connection( const char *key_str, const char *ip, const char *port ); /* client */
 
     void send( string s );

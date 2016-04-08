@@ -53,6 +53,22 @@ Transport<MyState, RemoteState>::Transport( MyState &initial_state, RemoteState 
   /* server */
 }
 
+/* use_desired_key is only present to prevent a duplicate constructor (with client) */
+template <class MyState, class RemoteState>
+Transport<MyState, RemoteState>::Transport( MyState &initial_state, RemoteState &initial_remote,
+					    const char *desired_ip, const char *desired_port,
+					    bool use_desired_key, const char *desired_key )
+  : connection( desired_ip, desired_port, use_desired_key, desired_key ),
+    sender( &connection, initial_state ),
+    received_states( 1, TimestampedState<RemoteState>( timestamp(), 0, initial_remote ) ),
+    receiver_quench_timer( 0 ),
+    last_receiver_state( initial_remote ),
+    fragments(),
+    verbose( false )
+{
+  /* server with key */
+}
+
 template <class MyState, class RemoteState>
 Transport<MyState, RemoteState>::Transport( MyState &initial_state, RemoteState &initial_remote,
 					    const char *key_str, const char *ip, const char *port )

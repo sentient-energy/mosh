@@ -231,26 +231,7 @@ private:
   AddrInfo &operator=(const AddrInfo &);
 };
 
-Connection::Connection( const char *desired_ip, const char *desired_port ) /* server */
-  : socks(),
-    has_remote_addr( false ),
-    remote_addr(),
-    remote_addr_len( 0 ),
-    server( true ),
-    MTU( DEFAULT_SEND_MTU ),
-    key(),
-    session( key ),
-    direction( TO_CLIENT ),
-    saved_timestamp( -1 ),
-    saved_timestamp_received_at( 0 ),
-    expected_receiver_seq( 0 ),
-    last_heard( -1 ),
-    last_port_choice( -1 ),
-    last_roundtrip_success( -1 ),
-    RTT_hit( false ),
-    SRTT( 1000 ),
-    RTTVAR( 500 ),
-    send_error()
+void Connection::ServerConnection( const char *desired_ip, const char *desired_port )
 {
   setup();
 
@@ -290,6 +271,60 @@ Connection::Connection( const char *desired_ip, const char *desired_port ) /* se
 
   assert( false );
   throw NetworkException( "Could not bind", errno );
+}
+
+Connection::Connection( const char *desired_ip, const char *desired_port ) /* server */
+  : socks(),
+    has_remote_addr( false ),
+    remote_addr(),
+    remote_addr_len( 0 ),
+    server( true ),
+    MTU( DEFAULT_SEND_MTU ),
+    key(),
+    session( key ),
+    direction( TO_CLIENT ),
+    next_seq( 0 ),
+    saved_timestamp( -1 ),
+    saved_timestamp_received_at( 0 ),
+    expected_receiver_seq( 0 ),
+    last_heard( -1 ),
+    last_port_choice( -1 ),
+    last_roundtrip_success( -1 ),
+    RTT_hit( false ),
+    SRTT( 1000 ),
+    RTTVAR( 500 ),
+    have_send_exception( false ),
+    send_exception()
+{
+  ServerConnection( desired_ip, desired_port );
+}
+
+/* use_desired_key is only present to prevent a duplicate constructor (with client) */
+Connection::Connection( const char *desired_ip, const char *desired_port,
+                        bool use_desired_key, const char *desired_key ) /* server with key */
+  : socks(),
+    has_remote_addr( false ),
+    remote_addr(),
+    remote_addr_len( 0 ),
+    server( true ),
+    MTU( DEFAULT_SEND_MTU ),
+    key( desired_key ),
+    session( key ),
+    direction( TO_CLIENT ),
+    next_seq( 0 ),
+    saved_timestamp( -1 ),
+    saved_timestamp_received_at( 0 ),
+    expected_receiver_seq( 0 ),
+    last_heard( -1 ),
+    last_port_choice( -1 ),
+    last_roundtrip_success( -1 ),
+    RTT_hit( false ),
+    SRTT( 1000 ),
+    RTTVAR( 500 ),
+    have_send_exception( false ),
+    send_exception()
+{
+  ServerConnection( desired_ip, desired_port );
 }
 
 bool Connection::try_bind( const char *addr, int port_low, int port_high )

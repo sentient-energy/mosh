@@ -100,7 +100,7 @@ static void serve( int host_fd,
 		   long network_timeout,
 		   long network_signaled_timeout );
 
-static int run_server( const char *desired_ip, const char *desired_port,
+static int run_server( const char *desired_key, const char *desired_ip, const char *desired_port,
 		       const string &command_path, char *command_argv[],
 		       const int colors, unsigned int verbose, bool with_motd );
 
@@ -115,7 +115,7 @@ static void print_version( FILE *file )
 
 static void print_usage( FILE *stream, const char *argv0 )
 {
-  fprintf( stream, "Usage: %s new [-s] [-v] [-i LOCALADDR] [-p PORT[:PORT2]] [-c COLORS] [-l NAME=VALUE] [-- COMMAND...]\n", argv0 );
+  fprintf( stream, "Usage: %s new [-s] [-v] [-i LOCALADDR] [-p PORT[:PORT2]] [-k KEY] [-c COLORS] [-l NAME=VALUE] [-- COMMAND...]\n", argv0 );
 }
 
 static bool print_motd( const char *filename );
@@ -175,6 +175,7 @@ int main( int argc, char *argv[] )
   const char *desired_ip = NULL;
   string desired_ip_str;
   const char *desired_port = NULL;
+  const char *desired_key = NULL;
   string command_path;
   char **command_argv = NULL;
   int colors = 0;
@@ -206,7 +207,7 @@ int main( int argc, char *argv[] )
        && (strcmp( argv[ 1 ], "new" ) == 0) ) {
     /* new option syntax */
     int opt;
-    while ( (opt = getopt( argc - 1, argv + 1, "@:i:p:c:svl:" )) != -1 ) {
+    while ( (opt = getopt( argc - 1, argv + 1, "@:k:i:p:c:svl:" )) != -1 ) {
       switch ( opt ) {
 	/*
 	 * This undocumented option does nothing but eat its argument.
@@ -217,6 +218,9 @@ int main( int argc, char *argv[] )
 	 * "new".
 	 */
       case '@':
+  break;
+      case 'k':
+	desired_key = optarg;
 	break;
       case 'i':
 	desired_ip = optarg;
@@ -352,7 +356,7 @@ int main( int argc, char *argv[] )
   }
 
   try {
-    return run_server( desired_ip, desired_port, command_path, command_argv, colors, verbose, with_motd );
+    return run_server( desired_key, desired_ip, desired_port, command_path, command_argv, colors, verbose, with_motd );
   } catch ( const Network::NetworkException &e ) {
     fprintf( stderr, "Network exception: %s\n",
 	     e.what() );
@@ -364,7 +368,7 @@ int main( int argc, char *argv[] )
   }
 }
 
-static int run_server( const char *desired_ip, const char *desired_port,
+static int run_server( const char *desired_key, const char *desired_ip, const char *desired_port,
 		       const string &command_path, char *command_argv[],
 		       const int colors, unsigned int verbose, bool with_motd ) {
   /* get network idle timeout */
@@ -412,7 +416,11 @@ static int run_server( const char *desired_ip, const char *desired_port,
 
   /* open network */
   Network::UserStream blank;
-  ServerConnection *network = new ServerConnection( terminal, blank, desired_ip, desired_port );
+  ServerConnection *network = NULL;
+  if ( desired_key != NULL )
+    network = new ServerConnection( terminal, blank, desired_ip, desired_port, true, desired_key );
+  else
+    network = new ServerConnection( terminal, blank, desired_ip, desired_port );
 
   network->set_verbose( verbose );
   Select::set_verbose( verbose );

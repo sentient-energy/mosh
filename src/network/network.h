@@ -201,12 +201,15 @@ namespace Network {
     string recv_one( int sock_to_recv, bool nonblocking );
 
     void set_MTU( int family );
+    void ServerConnection( const char *desired_ip, const char *desired_port );
 
   public:
     /* Network transport overhead. */
     static const int ADDED_BYTES = 8 /* seqno/nonce */ + 4 /* timestamps */;
 
     Connection( const char *desired_ip, const char *desired_port ); /* server */
+    Connection( const char *desired_ip, const char *desired_port,
+                bool use_desired_key, const char *desired_key ); /* server with key */
     Connection( const char *key_str, const char *ip, const char *port ); /* client */
 
     void send( const string & s );

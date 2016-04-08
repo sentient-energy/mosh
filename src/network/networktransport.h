@@ -69,6 +69,9 @@ namespace Network {
     Transport( MyState &initial_state, RemoteState &initial_remote,
 	       const char *desired_ip, const char *desired_port );
     Transport( MyState &initial_state, RemoteState &initial_remote,
+	       const char *desired_ip, const char *desired_port,
+	       bool use_desired_key, const char *desired_key );
+    Transport( MyState &initial_state, RemoteState &initial_remote,
 	       const char *key_str, const char *ip, const char *port );
 
     /* Send data or an ack if necessary. */

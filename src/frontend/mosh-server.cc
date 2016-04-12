@@ -98,11 +98,13 @@ static void serve( int host_fd,
 		   Terminal::Complete &terminal,
 		   ServerConnection &network,
 		   long network_timeout,
-		   long network_signaled_timeout );
+		   long network_signaled_timeout,
+		   const int timeout_if_no_client );
 
 static int run_server( const char *desired_key, const char *desired_ip, const char *desired_port,
 		       const string &command_path, char *command_argv[],
-		       const int colors, unsigned int verbose, bool with_motd );
+		       const int timeout_if_no_client, const int colors,
+		       bool verbose, bool with_motd );
 
 using namespace std;
 
@@ -115,7 +117,10 @@ static void print_version( FILE *file )
 
 static void print_usage( FILE *stream, const char *argv0 )
 {
-  fprintf( stream, "Usage: %s new [-s] [-v] [-i LOCALADDR] [-p PORT[:PORT2]] [-k KEY] [-c COLORS] [-l NAME=VALUE] [-- COMMAND...]\n", argv0 );
+	fprintf( stream, "Usage: %s new "
+           "[-s] [-v] [-i LOCALADDR] [-p PORT[:PORT2]] "
+           "[-k KEY] [-t TIMEOUT] "
+           "[-c COLORS] [-l NAME=VALUE] [-- COMMAND...]\n", argv0 );
 }
 
 static bool print_motd( const char *filename );
@@ -178,6 +183,7 @@ int main( int argc, char *argv[] )
   const char *desired_key = NULL;
   string command_path;
   char **command_argv = NULL;
+  int timeout_if_no_client = 60000; /* in msec; 60 sec default */
   int colors = 0;
   unsigned int verbose = 0; /* don't close stdin/stdout/stderr */
   /* Will cause mosh-server not to correctly detach on old versions of sshd. */
@@ -207,7 +213,7 @@ int main( int argc, char *argv[] )
        && (strcmp( argv[ 1 ], "new" ) == 0) ) {
     /* new option syntax */
     int opt;
-    while ( (opt = getopt( argc - 1, argv + 1, "@:k:i:p:c:svl:" )) != -1 ) {
+    while ( (opt = getopt( argc - 1, argv + 1, "@:k:i:p:t:c:svl:" )) != -1 ) {
       switch ( opt ) {
 	/*
 	 * This undocumented option does nothing but eat its argument.
@@ -234,6 +240,17 @@ int main( int argc, char *argv[] )
 	if ( !desired_ip_str.empty() ) {
 	  desired_ip = desired_ip_str.c_str();
 	  fatal_assert( desired_ip );
+	}
+	break;
+      case 't':
+	try {
+	  /* read seconds and convert to msec */
+	  timeout_if_no_client = myatoi( optarg );
+	  timeout_if_no_client *= 1000;
+	} catch ( const CryptoException & ) {
+	  fprintf( stderr, "%s: Bad timeout if no client (%s)\n", argv[ 0 ], optarg );
+	  print_usage( argv[ 0 ] );
+	  exit( 1 );
 	}
 	break;
       case 'c':
@@ -274,6 +291,13 @@ int main( int argc, char *argv[] )
   if ( desired_port && ! Connection::parse_portrange( desired_port, dpl, dph ) ) {
     fprintf( stderr, "%s: Bad UDP port range (%s)\n", argv[ 0 ], desired_port );
     print_usage( stderr, argv[ 0 ] );
+    exit( 1 );
+  }
+
+  if ( timeout_if_no_client < 0 ) {
+    fprintf( stderr, "%s: Invalid timeout if no client (%d)\n", argv[ 0 ],
+             timeout_if_no_client / 1000 );
+    print_usage( argv [ 0 ] );
     exit( 1 );
   }
 
@@ -356,7 +380,8 @@ int main( int argc, char *argv[] )
   }
 
   try {
-    return run_server( desired_key, desired_ip, desired_port, command_path, command_argv, colors, verbose, with_motd );
+    return run_server( desired_key, desired_ip, desired_port, command_path, command_argv,
+                       timeout_if_no_client, colors, verbose, with_motd );
   } catch ( const Network::NetworkException &e ) {
     fprintf( stderr, "Network exception: %s\n",
 	     e.what() );
@@ -370,7 +395,8 @@ int main( int argc, char *argv[] )
 
 static int run_server( const char *desired_key, const char *desired_ip, const char *desired_port,
 		       const string &command_path, char *command_argv[],
-		       const int colors, unsigned int verbose, bool with_motd ) {
+		       const int timeout_if_no_client, const int colors,
+		       bool verbose, bool with_motd ) {
   /* get network idle timeout */
   long network_timeout = 0;
   char *timeout_envar = getenv( "MOSH_SERVER_NETWORK_TMOUT" );
@@ -610,7 +636,7 @@ static int run_server( const char *desired_key, const char *desired_ip, const ch
 #endif
 
     try {
-      serve( master, terminal, *network, network_timeout, network_signaled_timeout );
+      serve( master, terminal, *network, network_timeout, network_signaled_timeout, timeout_if_no_client );
     } catch ( const Network::NetworkException &e ) {
       fprintf( stderr, "Network exception: %s\n",
 	       e.what() );
@@ -636,7 +662,8 @@ static int run_server( const char *desired_key, const char *desired_ip, const ch
   return 0;
 }
 
-static void serve( int host_fd, Terminal::Complete &terminal, ServerConnection &network, long network_timeout, long network_signaled_timeout )
+static void serve( int host_fd, Terminal::Complete &terminal, ServerConnection &network, 
+                   long network_timeout, long network_signaled_timeout, const int timeout_if_no_client )
 {
   /* scale timeouts */
   const uint64_t network_timeout_ms = static_cast<uint64_t>( network_timeout ) * 1000;
@@ -660,12 +687,12 @@ static void serve( int host_fd, Terminal::Complete &terminal, ServerConnection &
 
   while ( 1 ) {
     try {
-      static const uint64_t timeout_if_no_client = 60000;
       int timeout = INT_MAX;
       uint64_t now = Network::timestamp();
 
       timeout = min( timeout, network.wait_time() );
       timeout = min( timeout, terminal.wait_time( now ) );
+
       if ( (!network.get_remote_state_num())
 	   || network.shutdown_in_progress() ) {
         timeout = min( timeout, 5000 );
@@ -878,9 +905,10 @@ static void serve( int host_fd, Terminal::Complete &terminal, ServerConnection &
       }
 
       if ( !network.get_remote_state_num()
-           && time_since_remote_state >= timeout_if_no_client ) {
-        fprintf( stderr, "No connection within %llu seconds.\n",
-                 static_cast<unsigned long long>( timeout_if_no_client / 1000 ) );
+           && timeout_if_no_client
+           && time_since_remote_state >= uint64_t( timeout_if_no_client ) ) {
+        fprintf( stderr, "No connection within %d seconds.\n",
+                 timeout_if_no_client / 1000 );
         break;
       }
 

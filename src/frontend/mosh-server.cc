@@ -119,7 +119,7 @@ static void print_usage( FILE *stream, const char *argv0 )
 {
 	fprintf( stream, "Usage: %s new "
            "[-s] [-v] [-i LOCALADDR] [-p PORT[:PORT2]] "
-           "[-k KEY] [-t TIMEOUT] "
+           "[-k KEY] [-t TIMEOUT] [-b] "
            "[-c COLORS] [-l NAME=VALUE] [-- COMMAND...]\n", argv0 );
 }
 
@@ -185,6 +185,7 @@ int main( int argc, char *argv[] )
   char **command_argv = NULL;
   int timeout_if_no_client = 60000; /* in msec; 60 sec default */
   int colors = 0;
+  bool bypass_utf8 = false;
   unsigned int verbose = 0; /* don't close stdin/stdout/stderr */
   /* Will cause mosh-server not to correctly detach on old versions of sshd. */
   list<string> locale_vars;
@@ -213,7 +214,7 @@ int main( int argc, char *argv[] )
        && (strcmp( argv[ 1 ], "new" ) == 0) ) {
     /* new option syntax */
     int opt;
-    while ( (opt = getopt( argc - 1, argv + 1, "@:k:i:p:t:c:svl:" )) != -1 ) {
+    while ( (opt = getopt( argc - 1, argv + 1, "@:k:i:p:t:c:bsvl:" )) != -1 ) {
       switch ( opt ) {
 	/*
 	 * This undocumented option does nothing but eat its argument.
@@ -261,6 +262,9 @@ int main( int argc, char *argv[] )
 	  print_usage( stderr, argv[ 0 ] );
 	  exit( 1 );
 	}
+	break;
+      case 'b':
+	bypass_utf8 = true;
 	break;
       case 'v':
 	verbose++;
@@ -367,15 +371,17 @@ int main( int argc, char *argv[] )
 
     /* check again */
     set_native_locale();
-    if ( !is_utf8_locale() ) {
-      LocaleVar client_ctype = get_ctype();
-      string client_charset( locale_charset() );
+    if ( !bypass_utf8 ) {
+      if ( !is_utf8_locale() ) {
+        LocaleVar client_ctype = get_ctype();
+        string client_charset( locale_charset() );
 
-      fprintf( stderr, "mosh-server needs a UTF-8 native locale to run.\n\n" );
-      fprintf( stderr, "Unfortunately, the local environment (%s) specifies\nthe character set \"%s\",\n\n", native_ctype.str().c_str(), native_charset.c_str() );
-      fprintf( stderr, "The client-supplied environment (%s) specifies\nthe character set \"%s\".\n\n", client_ctype.str().c_str(), client_charset.c_str() );
-      int unused __attribute((unused)) = system( "locale" );
-      exit( 1 );
+        fprintf( stderr, "mosh-server needs a UTF-8 native locale to run.\n\n" );
+        fprintf( stderr, "Unfortunately, the local environment (%s) specifies\nthe character set \"%s\",\n\n", native_ctype.str().c_str(), native_charset.c_str() );
+        fprintf( stderr, "The client-supplied environment (%s) specifies\nthe character set \"%s\".\n\n", client_ctype.str().c_str(), client_charset.c_str() );
+        int unused __attribute((unused)) = system( "locale" );
+        exit( 1 );
+      }
     }
   }
 

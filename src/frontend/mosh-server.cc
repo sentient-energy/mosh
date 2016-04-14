@@ -103,7 +103,7 @@ static void serve( int host_fd,
 
 static int run_server( const char *desired_key, const char *desired_ip, const char *desired_port,
 		       const string &command_path, char *command_argv[],
-		       const int timeout_if_no_client, const int colors,
+		       const int timeout_if_no_client, bool daemonize, const int colors,
 		       bool verbose, bool with_motd );
 
 using namespace std;
@@ -119,7 +119,7 @@ static void print_usage( FILE *stream, const char *argv0 )
 {
 	fprintf( stream, "Usage: %s new "
            "[-s] [-v] [-i LOCALADDR] [-p PORT[:PORT2]] "
-           "[-k KEY] [-t TIMEOUT] [-b] "
+           "[-k KEY] [-t TIMEOUT] [-b] [-d] "
            "[-c COLORS] [-l NAME=VALUE] [-- COMMAND...]\n", argv0 );
 }
 
@@ -186,7 +186,9 @@ int main( int argc, char *argv[] )
   int timeout_if_no_client = 60000; /* in msec; 60 sec default */
   int colors = 0;
   bool bypass_utf8 = false;
+  bool daemonize = false;
   unsigned int verbose = 0; /* don't close stdin/stdout/stderr */
+
   /* Will cause mosh-server not to correctly detach on old versions of sshd. */
   list<string> locale_vars;
 
@@ -214,7 +216,7 @@ int main( int argc, char *argv[] )
        && (strcmp( argv[ 1 ], "new" ) == 0) ) {
     /* new option syntax */
     int opt;
-    while ( (opt = getopt( argc - 1, argv + 1, "@:k:i:p:t:c:bsvl:" )) != -1 ) {
+    while ( (opt = getopt( argc - 1, argv + 1, "@:k:i:p:t:c:bdsvl:" )) != -1 ) {
       switch ( opt ) {
 	/*
 	 * This undocumented option does nothing but eat its argument.
@@ -265,6 +267,9 @@ int main( int argc, char *argv[] )
 	break;
       case 'b':
 	bypass_utf8 = true;
+	break;
+      case 'd':
+	daemonize = true;
 	break;
       case 'v':
 	verbose++;
@@ -387,7 +392,7 @@ int main( int argc, char *argv[] )
 
   try {
     return run_server( desired_key, desired_ip, desired_port, command_path, command_argv,
-                       timeout_if_no_client, colors, verbose, with_motd );
+                       timeout_if_no_client, daemonize, colors, verbose, with_motd );
   } catch ( const Network::NetworkException &e ) {
     fprintf( stderr, "Network exception: %s\n",
 	     e.what() );
@@ -401,7 +406,7 @@ int main( int argc, char *argv[] )
 
 static int run_server( const char *desired_key, const char *desired_ip, const char *desired_port,
 		       const string &command_path, char *command_argv[],
-		       const int timeout_if_no_client, const int colors,
+		       const int timeout_if_no_client, bool daemonize, const int colors,
 		       bool verbose, bool with_motd ) {
   /* get network idle timeout */
   long network_timeout = 0;
@@ -476,32 +481,34 @@ static int run_server( const char *desired_key, const char *desired_ip, const ch
   fatal_assert( 0 == sigaction( SIGPIPE, &sa, NULL ) );
 
 
-  /* detach from terminal */
-  fflush( stdout );
-  fflush( stderr );
-  pid_t the_pid = fork();
-  if ( the_pid < 0 ) {
-    perror( "fork" );
-  } else if ( the_pid > 0 ) {
-    fprintf( stderr, "\nmosh-server (%s) [build %s]\n", PACKAGE_STRING, BUILD_VERSION );
-    fprintf( stderr, "Copyright 2012 Keith Winstein <mosh-devel@mit.edu>\n" );
-    fprintf( stderr, "License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>.\nThis is free software: you are free to change and redistribute it.\nThere is NO WARRANTY, to the extent permitted by law.\n\n" );
+  if (!daemonize) {
+	  /* detach from terminal */
+	  fflush( stdout );
+	  fflush( stderr );
+	  pid_t the_pid = fork();
+	  if ( the_pid < 0 ) {
+	    perror( "fork" );
+	  } else if ( the_pid > 0 ) {
+	    fprintf( stderr, "\nmosh-server (%s) [build %s]\n", PACKAGE_STRING, BUILD_VERSION );
+	    fprintf( stderr, "Copyright 2012 Keith Winstein <mosh-devel@mit.edu>\n" );
+	    fprintf( stderr, "License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>.\nThis is free software: you are free to change and redistribute it.\nThere is NO WARRANTY, to the extent permitted by law.\n\n" );
 
-    fprintf( stderr, "[mosh-server detached, pid = %d]\n", static_cast<int>(the_pid) );
-#ifndef HAVE_IUTF8
-    fprintf( stderr, "\nWarning: termios IUTF8 flag not defined.\nCharacter-erase of multibyte character sequence\nprobably does not work properly on this platform.\n" );
-#endif /* HAVE_IUTF8 */
+	    fprintf( stderr, "[mosh-server detached, pid = %d]\n", static_cast<int>(the_pid) );
+	#ifndef HAVE_IUTF8
+	    fprintf( stderr, "\nWarning: termios IUTF8 flag not defined.\nCharacter-erase of multibyte character sequence\nprobably does not work properly on this platform.\n" );
+	#endif /* HAVE_IUTF8 */
 
-    fflush( stdout );
-    fflush( stderr );
-    if ( isatty( STDOUT_FILENO ) ) {
-      tcdrain( STDOUT_FILENO );
-    }
-    if ( isatty( STDERR_FILENO ) ) {
-      tcdrain( STDERR_FILENO );
-    }
-    _exit( 0 );
-  }
+	    fflush( stdout );
+	    fflush( stderr );
+	    if ( isatty( STDOUT_FILENO ) ) {
+	      tcdrain( STDOUT_FILENO );
+	    }
+	    if ( isatty( STDERR_FILENO ) ) {
+	      tcdrain( STDERR_FILENO );
+	    }
+	    _exit( 0 );
+	  }
+	}
 
   int master;
 

@@ -453,7 +453,8 @@ void Connection::send( const string & s )
     send_error += strerror( errno );
 
     if ( errno == EMSGSIZE ) {
-      MTU = DEFAULT_SEND_MTU; /* payload MTU of last resort */
+      //MTU = 500; /* payload MTU of last resort */
+      MTU = get_MTU() / 2;
     }
   }
 

@@ -99,6 +99,7 @@ namespace Network {
 
     std::string port( void ) const { return connection.port(); }
     string get_key( void ) const { return connection.get_key(); }
+    void set_MTU( int s_MTU ) { connection.set_MTU( s_MTU ); }
 
     MyState &get_current_state( void ) { return sender.get_current_state(); }
     void set_current_state( const MyState &x ) { sender.set_current_state( x ); }

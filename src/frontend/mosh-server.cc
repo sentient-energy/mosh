@@ -96,8 +96,8 @@ static void serve( int host_fd, Terminal::Complete &terminal,
 
 static int run_server( const char *desired_key, const char *desired_ip, const char *desired_port,
 		       const string &command_path, char *command_argv[],
-		       const int timeout_if_no_client, bool daemonize, const int colors,
-		       bool verbose, bool with_motd );
+		       const int timeout_if_no_client, bool daemonize, int desired_MTU,
+		       const int colors, bool verbose, bool with_motd );
 
 using namespace std;
 
@@ -105,7 +105,7 @@ static void print_usage( const char *argv0 )
 {
   fprintf( stderr, "Usage: %s new "
            "[-s] [-v] [-i LOCALADDR] [-p PORT[:PORT2]] "
-           "[-k KEY] [-t TIMEOUT] [-b] [-d] "
+           "[-k KEY] [-t TIMEOUT] [-b] [-d] [-m MTU] "
            "[-c COLORS] [-l NAME=VALUE] [-- COMMAND...]\n", argv0 );
 }
 
@@ -173,6 +173,7 @@ int main( int argc, char *argv[] )
   int colors = 0;
   bool bypass_utf8 = false;
   bool daemonize = false;
+  int desired_MTU = 0;
   bool verbose = false; /* don't close stdin/stdout/stderr */
   /* Will cause mosh-server not to correctly detach on old versions of sshd. */
   list<string> locale_vars;
@@ -193,7 +194,7 @@ int main( int argc, char *argv[] )
        && (strcmp( argv[ 1 ], "new" ) == 0) ) {
     /* new option syntax */
     int opt;
-    while ( (opt = getopt( argc - 1, argv + 1, "k:i:p:t:c:bdsvl:" )) != -1 ) {
+    while ( (opt = getopt( argc - 1, argv + 1, "k:i:p:t:c:bdm:svl:" )) != -1 ) {
       switch ( opt ) {
       case 'k':
 	desired_key = optarg;
@@ -235,6 +236,15 @@ int main( int argc, char *argv[] )
       case 'd':
 	daemonize = true;
 	break;
+      case 'm':
+	try {
+	  desired_MTU = myatoi( optarg );
+	} catch ( const CryptoException & ) {
+	  fprintf( stderr, "%s: Bad MTU (%s)\n", argv[ 0 ], optarg );
+	  print_usage( argv[ 0 ] );
+	  exit( 1 );
+	}
+	break;
       case 'v':
 	verbose = true;
 	break;
@@ -270,6 +280,12 @@ int main( int argc, char *argv[] )
   if ( timeout_if_no_client < 0 ) {
     fprintf( stderr, "%s: Invalid timeout if no client (%d)\n", argv[ 0 ],
              timeout_if_no_client / 1000 );
+    print_usage( argv [ 0 ] );
+    exit( 1 );
+  }
+
+  if ( desired_MTU < 0 ) {
+    fprintf( stderr, "%s: Invalid MTU (%d)\n", argv[ 0 ], desired_MTU );
     print_usage( argv [ 0 ] );
     exit( 1 );
   }
@@ -356,7 +372,7 @@ int main( int argc, char *argv[] )
 
   try {
     return run_server( desired_key, desired_ip, desired_port, command_path, command_argv,
-                       timeout_if_no_client, daemonize, colors, verbose, with_motd );
+                       timeout_if_no_client, daemonize, desired_MTU, colors, verbose, with_motd );
   } catch ( const Network::NetworkException &e ) {
     fprintf( stderr, "Network exception: %s\n",
 	     e.what() );
@@ -370,8 +386,8 @@ int main( int argc, char *argv[] )
 
 static int run_server( const char *desired_key, const char *desired_ip, const char *desired_port,
 		       const string &command_path, char *command_argv[],
-		       const int timeout_if_no_client, bool daemonize, const int colors,
-		       bool verbose, bool with_motd ) {
+		       const int timeout_if_no_client, bool daemonize, int desired_MTU,
+		       const int colors, bool verbose, bool with_motd ) {
   /* get initial window size */
   struct winsize window_size;
   if ( ioctl( STDIN_FILENO, TIOCGWINSZ, &window_size ) < 0 ||
@@ -396,6 +412,10 @@ static int run_server( const char *desired_key, const char *desired_ip, const ch
     network = new ServerConnection( terminal, blank, desired_ip, desired_port, true, desired_key );
   else
     network = new ServerConnection( terminal, blank, desired_ip, desired_port );
+
+  if ( desired_MTU > 0 ) {
+    network->set_MTU( desired_MTU );
+  }
 
   if ( verbose ) {
     network->set_verbose();

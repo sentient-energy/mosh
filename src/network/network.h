@@ -187,6 +187,7 @@ namespace Network {
     string recv( void );
     const std::vector< int > fds( void ) const;
     int get_MTU( void ) const { return MTU; }
+    void set_MTU( int s_MTU ) { MTU = s_MTU; }
 
     std::string port( void ) const;
     string get_key( void ) const { return key.printable_key(); }

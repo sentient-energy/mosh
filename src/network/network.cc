@@ -437,7 +437,8 @@ void Connection::send( string s )
     send_exception = NetworkException( "sendto", errno );
 
     if ( errno == EMSGSIZE ) {
-      MTU = 500; /* payload MTU of last resort */
+      //MTU = 500; /* payload MTU of last resort */
+      MTU = get_MTU() / 2;
     }
   }
 

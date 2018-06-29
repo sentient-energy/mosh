@@ -200,20 +200,6 @@ const std::vector< int > Connection::fds( void ) const
   return ret;
 }
 
-void Connection::set_MTU( int family )
-{
-  switch ( family ) {
-  case AF_INET:
-    MTU = DEFAULT_IPV4_MTU - IPV4_HEADER_LEN;
-    break;
-  case AF_INET6:
-    MTU = DEFAULT_IPV6_MTU - IPV6_HEADER_LEN;
-    break;
-  default:
-    throw NetworkException( "Unknown address family", 0 );
-  }
-}
-
 class AddrInfo {
 public:
   struct addrinfo *res;
@@ -283,7 +269,6 @@ Connection::Connection( const char *desired_ip, const char *desired_port ) /* se
     key(),
     session( key ),
     direction( TO_CLIENT ),
-    next_seq( 0 ),
     saved_timestamp( -1 ),
     saved_timestamp_received_at( 0 ),
     expected_receiver_seq( 0 ),
@@ -292,9 +277,7 @@ Connection::Connection( const char *desired_ip, const char *desired_port ) /* se
     last_roundtrip_success( -1 ),
     RTT_hit( false ),
     SRTT( 1000 ),
-    RTTVAR( 500 ),
-    have_send_exception( false ),
-    send_exception()
+    RTTVAR( 500 )
 {
   ServerConnection( desired_ip, desired_port );
 }
@@ -311,7 +294,6 @@ Connection::Connection( const char *desired_ip, const char *desired_port,
     key( desired_key ),
     session( key ),
     direction( TO_CLIENT ),
-    next_seq( 0 ),
     saved_timestamp( -1 ),
     saved_timestamp_received_at( 0 ),
     expected_receiver_seq( 0 ),
@@ -320,9 +302,7 @@ Connection::Connection( const char *desired_ip, const char *desired_port,
     last_roundtrip_success( -1 ),
     RTT_hit( false ),
     SRTT( 1000 ),
-    RTTVAR( 500 ),
-    have_send_exception( false ),
-    send_exception()
+    RTTVAR( 500 )
 {
   ServerConnection( desired_ip, desired_port );
 }

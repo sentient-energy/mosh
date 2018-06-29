@@ -41,6 +41,7 @@ use Socket qw(IPPROTO_TCP);
 use Errno qw(EINTR);
 use POSIX qw(_exit);
 
+=pod
 BEGIN {
   my @gai_reqs = qw( getaddrinfo getnameinfo AI_CANONNAME AI_NUMERICHOST NI_NUMERICHOST );
   eval { Socket->import( @gai_reqs ); 1; }
@@ -57,6 +58,7 @@ my $have_ipv6 = eval {
   require IO::Socket::INET6;
   1;
 };
+=cut
 
 $|=1;
 

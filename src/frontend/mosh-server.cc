@@ -187,13 +187,8 @@ int main( int argc, char *argv[] )
   int colors = 0;
   bool bypass_utf8 = false;
   bool daemonize = false;
-<<<<<<< HEAD
-  unsigned int verbose = 0; /* don't close stdin/stdout/stderr */
-
-=======
   int desired_MTU = 0;
-  bool verbose = false; /* don't close stdin/stdout/stderr */
->>>>>>> CKSW-1062 Add new CLI [-m MTU] to mosh-server
+  unsigned int verbose = 0; /* don't close stdin/stdout/stderr */
   /* Will cause mosh-server not to correctly detach on old versions of sshd. */
   list<string> locale_vars;
 
@@ -221,11 +216,7 @@ int main( int argc, char *argv[] )
        && (strcmp( argv[ 1 ], "new" ) == 0) ) {
     /* new option syntax */
     int opt;
-<<<<<<< HEAD
-    while ( (opt = getopt( argc - 1, argv + 1, "@:k:i:p:t:c:bdsvl:" )) != -1 ) {
-=======
-    while ( (opt = getopt( argc - 1, argv + 1, "k:i:p:t:c:bdm:svl:" )) != -1 ) {
->>>>>>> CKSW-1062 Add new CLI [-m MTU] to mosh-server
+    while ( (opt = getopt( argc - 1, argv + 1, "@:k:i:p:t:c:bdm:svl:" )) != -1 ) {
       switch ( opt ) {
 	/*
 	 * This undocumented option does nothing but eat its argument.
@@ -261,7 +252,7 @@ int main( int argc, char *argv[] )
 	  timeout_if_no_client *= 1000;
 	} catch ( const CryptoException & ) {
 	  fprintf( stderr, "%s: Bad timeout if no client (%s)\n", argv[ 0 ], optarg );
-	  print_usage( argv[ 0 ] );
+	  print_usage( stderr, argv[ 0 ] );
 	  exit( 1 );
 	}
 	break;
@@ -285,7 +276,7 @@ int main( int argc, char *argv[] )
 	  desired_MTU = myatoi( optarg );
 	} catch ( const CryptoException & ) {
 	  fprintf( stderr, "%s: Bad MTU (%s)\n", argv[ 0 ], optarg );
-	  print_usage( argv[ 0 ] );
+	  print_usage( stderr, argv[ 0 ] );
 	  exit( 1 );
 	}
 	break;
@@ -324,13 +315,13 @@ int main( int argc, char *argv[] )
   if ( timeout_if_no_client < 0 ) {
     fprintf( stderr, "%s: Invalid timeout if no client (%d)\n", argv[ 0 ],
              timeout_if_no_client / 1000 );
-    print_usage( argv [ 0 ] );
+    print_usage( stderr, argv [ 0 ] );
     exit( 1 );
   }
 
   if ( desired_MTU < 0 ) {
     fprintf( stderr, "%s: Invalid MTU (%d)\n", argv[ 0 ], desired_MTU );
-    print_usage( argv [ 0 ] );
+    print_usage( stderr, argv [ 0 ] );
     exit( 1 );
   }
 
@@ -483,18 +474,14 @@ static int run_server( const char *desired_key, const char *desired_ip, const ch
   else
     network = new ServerConnection( terminal, blank, desired_ip, desired_port );
 
-<<<<<<< HEAD
-  network->set_verbose( verbose );
-  Select::set_verbose( verbose );
-=======
   if ( desired_MTU > 0 ) {
     network->set_MTU( desired_MTU );
   }
 
   if ( verbose ) {
-    network->set_verbose();
+    network->set_verbose( verbose );
+    Select::set_verbose( verbose );
   }
->>>>>>> CKSW-1062 Add new CLI [-m MTU] to mosh-server
 
   /*
    * If mosh-server is run on a pty, then typeahead may echo and break mosh.pl's
